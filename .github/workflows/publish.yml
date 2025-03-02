@@ -1,0 +1,43 @@
+name: Publish package
+
+on:
+  repository_dispatch:
+    types:
+      - new_version
+
+env:
+  PPA: ppa:fragoi/test
+
+jobs:
+
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.client_payload.version }}
+    steps:
+      - uses: fragoi/bash-actions@main
+
+      - name: Download upstream source
+        run: |
+          upver=$(debUpver $VERSION)
+          downloadTag fragoi/udpnotify v${upver} \
+            udpnotify_${upver}.orig.tar.gz
+
+      - name: Download packaging info
+        run: |
+          downloadTag fragoi/udpnotify-deb v${VERSION} \
+            udpnotify_${VERSION}.debian.tar.gz
+
+      - name: Build source package
+        uses: fragoi/debuild-action@main
+        with:
+          ppa: ${{ env.PPA }}
+
+      - name: Upload source package
+        uses: fragoi/debsign-action@main
+        with:
+          ppa: ${{ env.PPA }}
+          gpg_key: ${{ secrets.GPG_KEY }}
+          gpg_pass: ${{ secrets.GPG_PASS }}
+          ssh_key: ${{ secrets.SSH_KEY }}
+          ssh_pass: ${{ secrets.SSH_PASS }}
